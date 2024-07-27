@@ -1,23 +1,16 @@
 import express from 'express';
 import { Pool } from 'pg';
-import cors from 'cors';	
+import cors from 'cors';
+import { db} from './db';
+import { task } from './db/schema';
+import { eq } from 'drizzle-orm';		
 
 // Criação da instância do Express
 const app = express();
 const port = 3000;
 
-// Configuração do Pool de Conexão com o Banco de Dados
-const pool = new Pool({
-    user: 'postgres',
-    host: 'localhost',
-    database: 'ToDo',
-    password: '041199',
-    port: 5432,
-});
-
 // Middleware cors para permitir requisições de diferentes origens
 app.use(cors()); // Isso permite todas as origens
-// app.use(cors({ origin: 'http://localhost:5173' })); // Para permitir apenas de uma origem específica
 
 // Middleware para parsear JSON
 app.use(express.json());
@@ -27,13 +20,10 @@ app.use(express.json());
 app.post('/tasks', async (req, res) => {
     const { nm_task, dt_task } = req.body;
     try {
-        const result = await pool.query(
-            'INSERT INTO task (nm_task, dt_task) VALUES ($1, $2) RETURNING *',
-            [nm_task, dt_task]
-        );
-        res.status(201).json(result.rows[0]);
+        const [newTask] = await db.insert(task).values({ nm_task, dt_task }).returning();
+        res.status(201).json(newTask);
     } catch (error) {
-        console.error('Error on task creation: ', error);
+        console.error('Error on task creation:', error);
         res.status(500).send('Error on task creation');
     }
 });
@@ -41,8 +31,8 @@ app.post('/tasks', async (req, res) => {
 // Ler todas as tarefas
 app.get('/tasks', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM task');
-        res.json(result.rows);
+        const allTasks = await db.select().from(task);
+        res.json(allTasks);
     } catch (error) {
         console.error('Error on reading tasks:', error);
         res.status(500).send('Error on reading tasks');
@@ -53,9 +43,9 @@ app.get('/tasks', async (req, res) => {
 app.get('/tasks/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        const result = await pool.query('SELECT id, nm_task, dt_task FROM task WHERE id = $1', [id]);
-        if (result.rows.length > 0) {
-            res.json(result.rows[0]);
+        const [taskDetails] = await db.select().from(task).where(eq(task.id, parseInt(id)));
+        if (taskDetails) {
+            res.json(taskDetails);
         } else {
             res.status(404).send('Task not found');
         }
@@ -65,17 +55,15 @@ app.get('/tasks/:id', async (req, res) => {
     }
 });
 
+
 // Atualizar uma tarefa pelo ID
 app.put('/tasks/:id', async (req, res) => {
     const { id } = req.params;
     const { nm_task, dt_task } = req.body;
     try {
-        const result = await pool.query(
-            'UPDATE task SET nm_task = $1, dt_task = $2, dt_updated = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *',
-            [nm_task, dt_task, id]
-        );
-        if (result.rows.length > 0) {
-            res.json(result.rows[0]);
+        const [updatedTask] = await db.update(task).set({ nm_task, dt_task, dt_updated: new Date() }).where(eq(task.id, parseInt(id))).returning();
+        if (updatedTask) {
+            res.json(updatedTask);
         } else {
             res.status(404).send('Task not found');
         }
@@ -89,8 +77,8 @@ app.put('/tasks/:id', async (req, res) => {
 app.delete('/tasks/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        const result = await pool.query('DELETE FROM task WHERE id = $1 RETURNING *', [id]);
-        if (result.rows.length > 0) {
+        const [deletedTask] = await db.delete(task).where(eq(task.id, parseInt(id))).returning();
+        if (deletedTask) {
             res.status(200).json({ message: 'Task deleted successfully' });
         } else {
             res.status(404).send('Task not found');
