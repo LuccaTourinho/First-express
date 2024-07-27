@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Task } from '../interface';
 import { useTaskContext } from '../context/task';
 import Update from './update';
+import Delete from './delete';
 
 interface IToDoProps {
   task: Task;
@@ -10,8 +11,10 @@ interface IToDoProps {
 const ToDo: React.FunctionComponent<IToDoProps> = (props) => {
   const { removeTask, editTask } = useTaskContext();
   const [ showUpdatePopup, setShowUpdatePopup ] = useState<boolean>(false);
+  const [showDeletePopup, setShowDeletePopup] = useState<boolean>(false);
 
   const handleDelete = async () => {
+    setShowDeletePopup(false);
     await removeTask(props.task.id);
   };
 
@@ -47,7 +50,7 @@ const ToDo: React.FunctionComponent<IToDoProps> = (props) => {
         <div onClick={handleEdit} className='hover:cursor-pointer border-1 border-blue-600 hover:border-blue-300'>
           <i className="fa-regular fa-pen-to-square text-blue-600 hover:text-blue-300"></i>
         </div>
-        <div onClick={handleDelete} className='hover:cursor-pointer border-1 border-red-600 hover:border-red-300'>
+        <div onClick={() => setShowDeletePopup(true)} className='hover:cursor-pointer border-1 border-red-600 hover:border-red-300'>
           <i className="fa-solid fa-trash-can text-red-600 hover:text-red-300"></i>
         </div>
       </div>
@@ -56,6 +59,13 @@ const ToDo: React.FunctionComponent<IToDoProps> = (props) => {
           <Update task={props.task} onClose={() => setShowUpdatePopup(false)} />
         )
       }
+      {
+        showDeletePopup && (
+        <Delete
+          onConfirm={handleDelete} 
+          onCancel={() => setShowDeletePopup(false)} 
+        />
+      )}
     </div>
   );
 };
